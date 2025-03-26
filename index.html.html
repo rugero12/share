@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shared Blog</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            transition: border-color 0.3s ease;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        .submit-btn, .view-btn, .edit-btn, .delete-btn, .login-btn, .set-password-btn {
+            padding: 10px 15px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin: 5px;
+        }
+        .submit-btn:hover, .view-btn:hover, .login-btn:hover, .set-password-btn:hover {
+            background: #357abd;
+        }
+        .delete-btn {
+            background: #ff6b6b;
+        }
+        .delete-btn:hover {
+            background: #ee5253;
+        }
+        .edit-btn {
+            background: #4CAF50;
+        }
+        .edit-btn:hover {
+            background: #45a049;
+        }
+        .post-list, #loginSection {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+        }
+        .error {
+            color: #ff6b6b;
+            font-size: 0.9em;
+            margin-top: -10px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        #loginSection {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .password-options {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .view-page-post {
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+        .view-page-post-meta {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 10px;
+        }
+        .view-page-post-actions {
+            margin-top: 10px;
+        }
+        .author-label {
+            font-weight: bold;
+            color: #4a90e2;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loginSection" class="container">
+        <h2>Shared Blog Access</h2>
+        <div id="passwordSetup">
+            <div id="initialOptions">
+                <p>Choose an option:</p>
+                <div class="password-options">
+                    <button class="set-password-btn" id="showSetPasswordBtn">Set Shared Password</button>
+                    <button class="login-btn" id="showLoginBtn">Login</button>
+                </div>
+            </div>
+            <div id="setPasswordForm" style="display: none;">
+                <p>Set a shared password for the blog:</p>
+                <input type="text" id="authorName" placeholder="Enter your name" required>
+                <input type="password" id="newPassword" placeholder="Enter shared password" required>
+                <input type="password" id="confirmPassword" placeholder="Confirm password" required>
+                <div id="passwordSetError" class="error"></div>
+                <button class="set-password-btn" id="setPasswordBtn">Set Password</button>
+                <div class="password-options">
+                    <button class="login-btn" id="cancelSetPasswordBtn">Cancel</button>
+                </div>
+            </div>
+            <div id="passwordLogin" style="display: none;">
+                <p>Enter your name and shared password:</p>
+                <input type="text" id="loginAuthorName" placeholder="Enter your name" required>
+                <input type="password" id="loginPassword" placeholder="Enter shared password" required>
+                <button class="login-btn" id="loginBtn">Login</button>
+                <div id="loginError" class="error"></div>
+                <div class="password-options">
+                    <button class="set-password-btn" id="showSetNewPasswordBtn">Change Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="createPostSection" class="container" style="display: none;">
+        <h2 id="formTitle">Create a Blog Post</h2>
+        <form id="blogForm">
+            <input type="hidden" id="editIndex" value="-1">
+            <input type="text" id="title" placeholder="Enter post title" required>
+            <div id="titleError" class="error"></div>
+            <textarea id="content" placeholder="Write your blog post here..." rows="10" maxlength="1000" required></textarea>
+            <div id="contentError" class="error"></div>
+            <div id="contentCharCount">0 / 1000</div>
+            <button type="submit" class="submit-btn" id="submitButton">Publish Post</button>
+        </form>
+        <div>
+            <button id="switchToViewBtn" class="view-btn">View Posts</button>
+        </div>
+    </div>
+    
+    <div id="viewPostsSection" style="display: none;">
+        <div class="container">
+            <h2>Shared Blog Posts</h2>
+            <div id="posts-container"></div>
+            <button id="switchToCreateBtn" class="submit-btn">Create New Post</button>
+        </div>
+    </div>
+
+    <script>
+        // In-Memory Storage Manager
+        const StorageManager = {
+            _storage: {
+                posts: [],
+                password: null,
+                author: null
+            },
+            getSharedPosts: function() {
+                return this._storage.posts;
+            },
+            saveSharedPosts: function(posts) {
+                this._storage.posts = posts;
+            },
+            setSharedPassword: function(password) {
+                this._storage.password = password;
+            },
+            getSharedPassword: function() {
+                return this._storage.password;
+            },
+            setSharedAuthor: function(author) {
+                this._storage.author = author;
+            },
+            getSharedAuthor: function() {
+                return this._storage.author;
+            }
+        };
+
+        // Get all the elements
+        const loginSection = document.getElementById('loginSection');
+        const initialOptions = document.getElementById('initialOptions');
+        const setPasswordForm = document.getElementById('setPasswordForm');
+        const passwordLogin = document.getElementById('passwordLogin');
+        const authorNameInput = document.getElementById('authorName');
+        const loginAuthorNameInput = document.getElementById('loginAuthorName');
+        const newPasswordInput = document.getElementById('newPassword');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        const setPasswordBtn = document.getElementById('setPasswordBtn');
+        const showSetPasswordBtn = document.getElementById('showSetPasswordBtn');
+        const showLoginBtn = document.getElementById('showLoginBtn');
+        const cancelSetPasswordBtn = document.getElementById('cancelSetPasswordBtn');
+        const showSetNewPasswordBtn = document.getElementById('showSetNewPasswordBtn');
+        const loginPasswordInput = document.getElementById('loginPassword');
+        const loginBtn = document.getElementById('loginBtn');
+        const passwordSetError = document.getElementById('passwordSetError');
+        const loginError = document.getElementById('loginError');
+        const createPostSection = document.getElementById('createPostSection');
+        const viewPostsSection = document.getElementById('viewPostsSection');
+
+        // Existing variables and functions from the previous script
+        const titleInput = document.getElementById('title');
+        const contentInput = document.getElementById('content');
+        const titleError = document.getElementById('titleError');
+        const contentError = document.getElementById('contentError');
+        const contentCharCount = document.getElementById('contentCharCount');
+        const switchToViewBtn = document.getElementById('switchToViewBtn');
+        const switchToCreateBtn = document.getElementById('switchToCreateBtn');
+        const postsContainer = document.getElementById('posts-container');
+        const formTitle = document.getElementById('formTitle');
+        const submitButton = document.getElementById('submitButton');
+        const editIndexInput = document.getElementById('editIndex');
+
+        let currentUserName = '';
+        let posts = StorageManager.getSharedPosts();
+
+        // Password-related functions
+        function setPassword() {
+            const authorName = authorNameInput.value.trim();
+            const newPassword = newPasswordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+
+            // Validate inputs
+            if (!authorName) {
+                passwordSetError.textContent = 'Please enter your name';
+                return;
+            }
+
+            if (!newPassword || !confirmPassword) {
+                passwordSetError.textContent = 'Please enter and confirm your password';
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                passwordSetError.textContent = 'Passwords do not match';
+                return;
+            }
+
+            if (newPassword.length < 4) {
+                passwordSetError.textContent = 'Password must be at least 4 characters long';
+                return;
+            }
+
+            // Hash the password before storing
+            const hashedPassword = btoa(newPassword);
+            StorageManager.setSharedPassword(hashedPassword);
+            StorageManager.setSharedAuthor(authorName);
+
+            // Reset form and switch views
+            passwordSetError.textContent = '';
+            authorNameInput.value = '';
+            newPasswordInput.value = '';
+            confirmPasswordInput.value = '';
+            setPasswordForm.style.display = 'none';
+            initialOptions.style.display = 'block';
+            
+            alert('Shared password successfully set!');
+        }
+
+        function login() {
+            const storedPassword = StorageManager.getSharedPassword();
+            const storedAuthor = StorageManager.getSharedAuthor();
+            const inputAuthorName = loginAuthorNameInput.value.trim();
+            const inputPassword = loginPasswordInput.value;
+            const hashedInput = btoa(inputPassword);
+
+            if (!storedPassword) {
+                loginError.textContent = 'No shared password set. Please set a password first.';
+                return;
+            }
+
+            if (!inputAuthorName) {
+                loginError.textContent = 'Please enter your name';
+                return;
+            }
+
+            if (hashedInput !== storedPassword) {
+                loginError.textContent = 'Incorrect password';
+                return;
+            }
+
+            // Successful login
+            currentUserName = inputAuthorName;
+            loginSection.style.display = 'none';
+            createPostSection.style.display = 'block';
+            renderPosts();
+        }
+
+        // Initial check for password
+        function checkPasswordStatus() {
+            const storedPassword = StorageManager.getSharedPassword();
+
+            if (!storedPassword) {
+                // Show initial options
+                initialOptions.style.display = 'block';
+                setPasswordForm.style.display = 'none';
+                passwordLogin.style.display = 'none';
+            } else {
+                // Password exists, show login
+                initialOptions.style.display = 'none';
+                passwordLogin.style.display = 'block';
+                setPasswordForm.style.display = 'none';
+            }
+        }
+
+        // Navigation functions for password setup/login
+        showSetPasswordBtn.addEventListener('click', () => {
+            initialOptions.style.display = 'none';
+            setPasswordForm.style.display = 'block';
+        });
+
+        showLoginBtn.addEventListener('click', () => {
+            initialOptions.style.display = 'none';
+            passwordLogin.style.display = 'block';
+        });
+
+        cancelSetPasswordBtn.addEventListener('click', () => {
+            setPasswordForm.style.display = 'none';
+            initialOptions.style.display = 'block';
+            passwordSetError.textContent = '';
+        });
+
+        showSetNewPasswordBtn.addEventListener('click', () => {
+            passwordLogin.style.display = 'none';
+            setPasswordForm.style.display = 'block';
+        });
+
+        // Event Listeners for Password
+        setPasswordBtn.addEventListener('click', setPassword);
+        loginBtn.addEventListener('click', login);
+
+        function renderPosts() {
+            postsContainer.innerHTML = "";
+
+            // Retrieve the latest posts from shared storage
+            posts = StorageManager.getSharedPosts();
+
+            if (posts.length === 0) {
+                postsContainer.innerHTML = `
+                    <div class="no-posts">
+                        <p>No blog posts found. Create your first post!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            posts.slice().reverse().forEach((post, index) => {
+                const reversedIndex = posts.length - 1 - index;
+                const div = document.createElement("div");
+                div.classList.add("view-page-post");
+                div.innerHTML = `
+                    <h2>${post.title}</h2>
+                    <div class="view-page-post-meta">
+                        <span class="author-label">By: ${post.author}</span>
+                        Posted on: ${post.timestamp}
+                    </div>
+                    <div class="view-page-post-content">${post.content}</div>
+                    ${post.author === currentUserName ? `
+                    <div class="view-page-post-actions">
+                        <button class="edit-btn" onclick="editPost(${reversedIndex})">Edit</button>
+                        <button class="delete-btn" onclick="deletePost(${reversedIndex})">Delete</button>
+                    </div>
+                    ` : ''}
+                `;
+                postsContainer.appendChild(div);
+            });
+        }
+
+        function deletePost(index) {
+            const confirmDelete = confirm('Are you sure you want to delete this post?');
+            if (confirmDelete) {
+                posts.splice(index, 1);
+                StorageManager.saveSharedPosts(posts);
+                renderPosts();
+            }
+        }
+
+        function editPost(index) {
+            createPostSection.style.display = 'block';
+            viewPostsSection.style.display = 'none';
+
+            titleInput.value = posts[index].title;
+            contentInput.value = posts[index].content;
+            
+            formTitle.textContent = 'Edit Blog Post';
+            submitButton.textContent = 'Update Post';
+            
+            editIndexInput.value = index;
+
+            contentCharCount.textContent = `${contentInput.value.length} / 1000`;
+        }
+
+        document.getElementById("blogForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            
+            if (!validateTitle() || !validateContent()) {
+                return;
+            }
+
+            const title = titleInput.value.trim();
+            const content = contentInput.value.trim();
+            const editIndex = parseInt(editIndexInput.value);
+            
+            if (editIndex === -1) {
+                posts.push({ 
+                    title, 
+                    content,
+                    author: currentUserName,
+                    timestamp: new Date().toLocaleString() 
+                });
+            } else {
+                posts[editIndex] = { 
+                    title, 
+                    content,
+                    author: currentUserName,
+                    timestamp: new Date().toLocaleString() 
+                };
+            }
+            
+            StorageManager.saveSharedPosts(posts);
+            renderPosts();
+            this.reset();
+            
+            formTitle.textContent = 'Create a Blog Post';
+            submitButton.textContent = 'Publish Post';
+            editIndexInput.value = -1;
+            
+            contentCharCount.textContent = '0 / 1000';
+
+            createPostSection.style.display = 'none';
+            viewPostsSection.style.display = 'block';
+        });
+
+        // Remaining event listeners and functions
+        switchToViewBtn.addEventListener('click', () => {
+            createPostSection.style.display = 'none';
+            viewPostsSection.style.display = 'block';
+            renderPosts();
+        });
+
+        switchToCreateBtn.addEventListener('click', () => {
+            createPostSection.style.display = 'block';
+            viewPostsSection.style.display = 'none';
+            
+            formTitle.textContent = 'Create a Blog Post';
+            submitButton.textContent = 'Publish Post';
+            editIndexInput.value = '-1';
+            
+            titleInput.value = '';
+            contentInput.value = '';
+            contentCharCount.textContent = '0 / 1000';
+        });
+
+        function validateTitle() {
+            if (titleInput.value.length < 5) {
+                titleError.textContent = 'Title must be at least 5 characters long';
+                return false;
+            }
+            titleError.textContent = '';
+            return true;
+        }
+
+        function validateContent() {
+            if (contentInput.value.length < 20) {
+                contentError.textContent = 'Content must be at least 20 characters long';
+                return false;
+            }
+            contentError.textContent = '';
+            return true;
+        }
+
+        titleInput.addEventListener('input', validateTitle);
+        contentInput.addEventListener('input', () => {
+            validateContent();
+            contentCharCount.textContent = `${contentInput.value.length} / 1000`;
+        });
+
+        // Initial setup
+        checkPasswordStatus();
+    </script>
+</body>
+</html>
